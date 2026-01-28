@@ -16,6 +16,7 @@ import time
 
 # Data variables 
 reporters = set()
+fileNames = []
 
 class Job:
     def __init__(self, reporter, date, name, pages, rate, gross):
@@ -125,20 +126,37 @@ def publishInvoices():
         
         #initialize the document + header
         doc = Document()
-        with open("header.json") as f:
+        with open(resource_path("header.json")) as f:
             header_data = json.load(f)
+
         today = datetime.today()
         two_weeks = today + timedelta(days=14)
-        headingText = f"Invoice #{currentIndex}\n\n\n\n{header_data['Company name']}\n{header_data['Address1']}\n{header_data['Address2']}\n{header_data['Cell']}\n\n" \
-            f"TO: {invoice.customer}\n\n\n\n\n\nInvoice Date: {today.strftime('%m-%d-%Y')}\nDate Due: {two_weeks.strftime('%m-%d-%Y')}\n\n"
-        heading = doc.add_table(rows=1, cols=5)
-        heading.columns[1].width = Inches(1.8)
-        heading.columns[0].width = Inches(2.0)
-        heading.alignment = WD_TABLE_ALIGNMENT.CENTER
-        heading.rows[0].cells[0].text = headingText
+
+        heading = doc.add_table(rows=1, cols=1)
+        heading.alignment = WD_TABLE_ALIGNMENT.LEFT
+        cell = heading.rows[0].cells[0]
+
+        # Invoice number
+        p = cell.paragraphs[0]
+        p.text = f"Invoice #{currentIndex}"
+        p.runs[0].bold = True
+
+        cell.add_paragraph("")  # spacer
+
+        # Company info
+        cell.add_paragraph(header_data["Company name"]).runs[0].bold = True
+        cell.add_paragraph(header_data["Address1"])
+        cell.add_paragraph(header_data["Address2"])
+        cell.add_paragraph(header_data["Cell"])
+
+        cell.add_paragraph("")  # spacer
+
+        # Customer + dates
+        cell.add_paragraph(f"TO: {invoice.customer}")
+        cell.add_paragraph(f"Invoice Date: {today.strftime('%m-%d-%Y')}")
+        cell.add_paragraph(f"Date Due: {two_weeks.strftime('%m-%d-%Y')}")
 
 
-        
         #intialize table
         table = doc.add_table(rows=1, cols=5)
         table.columns[1].width = Inches(2.5)
@@ -182,26 +200,25 @@ def publishInvoices():
         fileName = os.path.join(folderName, f"Invoice{currentIndex}-{reporterInitials}.docx")
         doc.save(fileName)
         print(f"Succesfully Generated {invoice.customer}'s Invoice! - ${invoice_total:.2f}")
+        fileNames.append(fileName)
         currentIndex += 1
         grandTotal += invoice_total
-    return grandTotal, folderName
 
-def createPDFs(folderName):
+    return grandTotal, folderName, fileNames
+
+def createPDFs(fileNames):
     root = tk.Tk()
     root.withdraw()
     print ("Select PDF Folder")
     pdfFolderName = filedialog.askdirectory(title="Select PDF Folder")
-
-    for file in os.listdir(folderName):
-        if file.endswith(".docx"):
-            src = os.path.join(folderName, file)
-            dst = os.path.join(pdfFolderName, file.replace(".docx", ".pdf"))
-            try:
-                convert(src, dst)
-                print(f"Converted: {file}")
-                time.sleep(0.3)  # prevents Word from stalling
-            except Exception as e:
-                print(f"Failed: {file} — {e}")
+    for src in fileNames:
+        dst = os.path.join(pdfFolderName, os.path.basename(src).replace(".docx", ".pdf"))
+        try:
+            convert(src, dst)
+            print(f"Converted: {src}")
+            time.sleep(0.3)  # prevents Word from stalling
+        except Exception as e:
+            print(f"Failed: {src} — {e}")
     print("Succesfully Converted to PDFS")
 
 
@@ -212,9 +229,7 @@ findReporters(ws)
 jobs = findJobs(ws)
 reporter_jobs = groupJobs()
 invoices = createInvoices()
-grandTotal, folderName = publishInvoices()
-createPDFs(folderName)
+grandTotal, folderName, fileNames = publishInvoices()
+createPDFs(fileNames)
 print(f"Grand Total: ${grandTotal}")
 input("Press Enter to exit")
-
-#FIXME: header is still weird, only create pdfs of files created in an instance of the program
