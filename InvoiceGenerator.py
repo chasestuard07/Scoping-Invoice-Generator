@@ -37,7 +37,7 @@ def Boot ():
     root = tk.Tk()
     root.withdraw()
     
-    print ("Invoice Generator v1.1")
+    print ("Invoice Generator v1.2")
     print ("Select Excel File")
 
 
@@ -126,7 +126,7 @@ def publishInvoices():
         
         #initialize the document + header
         doc = Document()
-        with open(resource_path("header.json")) as f:
+        with open("header.json") as f:
             header_data = json.load(f)
 
         today = datetime.today()
